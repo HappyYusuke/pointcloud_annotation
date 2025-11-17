@@ -14,17 +14,28 @@
 * 点群から地面を削除する
   > [bat-3d](https://github.com/walzimmer/bat-3d.git)の[export_pointcloud_without_ground_nuscenes.py](https://github.com/walzimmer/bat-3d/blob/master/scripts/nuscenes_devkit/python-sdk/scripts/export_pointcloud_without_ground_nuscenes.py)を使用
 
-動作確認した環境は以下の通りである。
+* アノテーションの結果を確認する
+  > visualize_annotation.py
 
-* Ubuntu22.04
-* Python3.10.12
-* ros2 humble
+# Requirements
+| 項目 | 要件 |
+| --- | --- |
+| OS | Ubuntu22.04 |
+| Python | 3.10.12 |
+| ROS2 | Humble |
+| Open3D | 0.19.0 |
+| NumPy | 1.12.6 |
 
 # Installation
 本リポジトリをクローン
 ```bash
 cd ~/
 git clone https://github.com/HappyYusuke/pointcloud_annotation.git
+```
+
+[Open3D](https://www.open3d.org/docs/release/getting_started.html)とNumPyをインストール
+```bash
+pip install open3d numpy
 ```
 
 ## perception_pcl
@@ -162,3 +173,5 @@ for file in sorted(os.listdir(path_in)):
 ```bash
 python3 export_pointcloud_without_ground_nuscenes.py
 ```
+
+## Check the annotations
