@@ -8,9 +8,6 @@
 本リポジトリは、[bat-3d](https://github.com/walzimmer/bat-3d.git)のREADMEに情報が足りないため作成しました。
 最初に[3d-bat](https://github.com/walzimmer/3d-bat.git)を試しましたが、動作しなかったのでbat-3dの使い方を説明します。
 本リポジトリで想定している使用方法は以下の通りですが、本家のREADMEによるとWindowsでも使用できるようです。
-* Ubuntu 22.04
-* Google Chrome
-* 点群のみのアノテーション
 
 内容物
 * `base_label_tools.js`, `config.json`, `index.html`
@@ -30,6 +27,7 @@
 | PC | GPUあり（NVIDIA） |
 | OS | Ubuntu22.04 (Windows11でも動作します) |
 | Browser | Chrome |
+| Data | PointCloud only |
 
 <br>
 
@@ -181,7 +179,8 @@
    * ウィンドウ左側のファイルツリーから`index.html`を右クリックしてください。
    * 「開く」 => 「ブラウザ」 => 「Chrome」の順に選択してください。（ブラウザはChrome以外でもOKです）
    * ブラウザでbat-3dが立ち上がります。
-   * すでにラベル情報 (JSONファイル) がある場合は、`Loading Annotations ...` と表示されます。
+   * `Loading (1/hoge) ...` と表示されます。
+   * 読み込みが終了したらアノテーションできます。
 
 > [!NOTE]
 > ライセンスを求められることがあるが、大学のメールアドレスがあれば[Student Pack](https://www.jetbrains.com/ja-jp/academy/student-pack/?_cl=MTsxOzE7Rmdic3U2Q1RhTThFR2k3eVRrMVRvV3ZnT2xMSGRJRWJMeU5EU0xDSVI5N3RjQ0xxZjJzMERlYmJZbWNDUVM3Rjs=#students)に登録して無料で利用できる。
@@ -215,7 +214,7 @@ ZIPファイルをダウンロードすると、ラベルファイル (JSON) を
 <br>
 
 # Troubleshooting
-## `Loading Annotations ...`で止まる
+## `Loading (1/hoge) ...`で止まる
 ここでは、**Chrome**を使用している前提で進めます。
 
 1.  Chromeのアドレスバーに`chrome://settings/system`と入力します。
