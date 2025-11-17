@@ -224,4 +224,5 @@ python3 view_sequence.py ~/pointcloud_annotation/tools/sample
 | マウスドラッグ | 回転 |
 | Ctrl + マウスドラッグ | 平行移動 |
 | ホイール | ズーム |
+| D | bbox内の点群のみ表示 |
 | Q | 終了 |
