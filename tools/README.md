@@ -172,3 +172,31 @@ python3 export_pointcloud_without_ground_nuscenes.py
 ```
 
 ## Check the annotations
+`visualize_annotation.py`を使用する。
+pcdファイルとJSONファイルを以下のように設置してください。
+```
+your_data
+├── annotations
+│   ├── 000000.json
+│   ├── 000001.json
+│   ├── 000002.json
+│   ├── 000003.json
+│   ├── 000004.json
+│   ├── 000005.json
+│   ├── 000006.json
+│   ├── 000007.json
+│   ├── 000008.json
+│   └── 000009.json
+└── pointclouds
+    ├── 000000.pcd
+    ├── 000001.pcd
+    ├── 000002.pcd
+    ├── 000003.pcd
+    ├── 000004.pcd
+    ├── 000005.pcd
+    ├── 000006.pcd
+    ├── 000007.pcd
+    ├── 000008.pcd
+    └── 000009.pcd
+```
+
