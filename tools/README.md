@@ -172,7 +172,12 @@ python3 export_pointcloud_without_ground_nuscenes.py
 ```
 
 ## Check the annotations
-`visualize_annotation.py`を使用する。
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/d4b047c8-6997-4bd8-a773-83fed692739f" />
+
+<br>
+<br>
+
+`visualize_annotation.py`を使用する。<br>
 pcdファイルとJSONファイルを以下のように設置してください。<br>
 (ファイルツリーの[サンプル](./sample)あり)
 ```
@@ -201,3 +206,22 @@ your_data
     └── 000009.pcd
 ```
 
+プログラムを実行してください。
+```bash
+python3 view_sequence.py /path/to/your_data
+```
+
+本リポジトリのサンプルを使用する場合は以下のコマンドを実行してください。
+```bash
+python3 view_sequence.py ~/pointcloud_annotation/tools/sample
+```
+
+操作方法
+| コマンド | 操作 |
+| --- | --- |
+| 右矢印キー (→) | 次のフレームへ |
+| 左矢印キー (←) | 前のフレームへ |
+| マウスドラッグ | 回転 |
+| Ctrl + マウスドラッグ | 平行移動 |
+| ホイール | ズーム |
+| Q | 終了 |
