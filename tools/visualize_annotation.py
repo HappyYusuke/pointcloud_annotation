@@ -18,13 +18,11 @@ class AnnotationPlayer:
         self.pcd_dir = os.path.join(base_dir, "pointclouds")
         self.json_dir = os.path.join(base_dir, "annotations")
         
-        # ディレクトリ構造のチェック (bat-3d構成か、フラットか)
         if not os.path.exists(self.pcd_dir):
             print(f"Note: 'pointclouds' folder not found. Assuming flat directory structure.")
             self.pcd_dir = base_dir
             self.json_dir = base_dir
 
-        # PCDファイルリストの取得とソート
         self.pcd_files = sorted(glob.glob(os.path.join(self.pcd_dir, "*.pcd")))
         
         if not self.pcd_files:
@@ -32,8 +30,16 @@ class AnnotationPlayer:
             
         self.num_frames = len(self.pcd_files)
         self.current_idx = 0
-        self.geometries = [] # 現在表示中のジオメトリリスト
         
+        # 描画管理用
+        self.geometries = []       # 現在Visualizerに登録されているジオメトリ
+        self.current_pcd = None    # 現在の生の点群データ
+        self.current_bboxes = []   # 現在のバウンディングボックスリスト
+        self.axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
+        
+        # 表示モードフラグ (TrueならBBox内のみ表示)
+        self.is_cropped_view = False
+
         print(f"Found {self.num_frames} frames.")
 
     def get_rotation_matrix_z(self, yaw):
@@ -54,37 +60,31 @@ class AnnotationPlayer:
             
             bbox = o3d.geometry.OrientedBoundingBox(center, rotation_matrix, extent)
             
-            # クラスごとの色分け
             category = label.get('category', 'Unknown')
             if category == 'person':
-                bbox.color = (1, 0, 1) # マゼンタ
+                bbox.color = (1, 0, 1) 
             elif category == 'Car' or category == 'vehicle':
-                bbox.color = (0, 1, 0) # 緑
+                bbox.color = (0, 1, 0) 
             else:
-                bbox.color = (1, 0, 0) # 赤
+                bbox.color = (1, 0, 0) 
                 
             return bbox
         except Exception as e:
-            print(f"Skipping invalid label: {e}")
             return None
 
-    def load_frame(self, idx):
-        """指定されたインデックスのジオメトリ（点群＋BBox）をリストで返す"""
+    def load_data(self, idx):
+        """指定インデックスのデータを読み込んでメンバ変数を更新する"""
         pcd_path = self.pcd_files[idx]
-        
-        # ファイル名（拡張子なし）を取得してJSONパスを作る
         basename = os.path.splitext(os.path.basename(pcd_path))[0]
         json_path = os.path.join(self.json_dir, basename + ".json")
         
-        geoms = []
+        # 1. 点群読み込み
+        self.current_pcd = o3d.io.read_point_cloud(pcd_path)
+        if not self.current_pcd.has_colors():
+            self.current_pcd.paint_uniform_color([0.5, 0.5, 0.5])
         
-        # 1. 点群の読み込み
-        pcd = o3d.io.read_point_cloud(pcd_path)
-        if not pcd.has_colors():
-            pcd.paint_uniform_color([0.5, 0.5, 0.5])
-        geoms.append(pcd)
-        
-        # 2. JSONの読み込み
+        # 2. BBox読み込み
+        self.current_bboxes = []
         if os.path.exists(json_path):
             try:
                 with open(json_path, 'r') as f:
@@ -93,69 +93,89 @@ class AnnotationPlayer:
                 for label in labels:
                     bbox = self.create_bounding_box(label)
                     if bbox:
-                        geoms.append(bbox)
-            except Exception as e:
-                print(f"Error reading JSON: {e}")
+                        self.current_bboxes.append(bbox)
+            except Exception:
+                pass
         
-        # 3. 座標軸
-        axis = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
-        geoms.append(axis)
-        
-        print(f"Frame [{idx+1}/{self.num_frames}]: {basename}")
+        print(f"Frame [{idx+1}/{self.num_frames}]: {basename} (BBoxes: {len(self.current_bboxes)})")
+
+    def get_render_geometries(self):
+        """現在のモードに合わせて表示すべきジオメトリのリストを返す"""
+        geoms = [self.axis]
+        geoms.extend(self.current_bboxes)
+
+        if self.is_cropped_view and self.current_bboxes:
+            # クロップモード: 各BBoxの中身を切り出して結合
+            cropped_pcd_combined = o3d.geometry.PointCloud()
+            for bbox in self.current_bboxes:
+                # 点群をBBoxで切り抜く
+                cropped_part = self.current_pcd.crop(bbox)
+                cropped_pcd_combined += cropped_part
+            
+            geoms.append(cropped_pcd_combined)
+        else:
+            # 通常モード: 全点群を表示
+            geoms.append(self.current_pcd)
+            
         return geoms
 
     def update_vis(self, vis):
-        """Visualizerの内容を更新する"""
-        # 古いジオメトリを削除
+        """Visualizerの更新処理"""
+        # 1. 現在登録されているジオメトリを削除
         for g in self.geometries:
             vis.remove_geometry(g, reset_bounding_box=False)
-            
-        # 新しいジオメトリを読み込み
-        self.geometries = self.load_frame(self.current_idx)
         
-        # 新しいジオメトリを追加
+        # 2. 表示すべきジオメトリを取得
+        self.geometries = self.get_render_geometries()
+        
+        # 3. 新しいジオメトリを追加
         for g in self.geometries:
             vis.add_geometry(g, reset_bounding_box=False)
             
-        # 最初のフレームだけ視点をリセット（以降は視点を維持）
+        # 初回のみ視点リセット
         if self.current_idx == 0 and not hasattr(self, 'view_initialized'):
             vis.reset_view_point(True)
             self.view_initialized = True
 
     def run(self):
-        # キーコールバックの定義
         def next_frame(vis):
             if self.current_idx < self.num_frames - 1:
                 self.current_idx += 1
+                self.load_data(self.current_idx)
                 self.update_vis(vis)
-            else:
-                print("End of sequence.")
             return False
 
         def prev_frame(vis):
             if self.current_idx > 0:
                 self.current_idx -= 1
+                self.load_data(self.current_idx)
                 self.update_vis(vis)
-            else:
-                print("Start of sequence.")
             return False
 
-        # キー割り当て
+        def toggle_crop(vis):
+            self.is_cropped_view = not self.is_cropped_view
+            mode_str = "Cropped View" if self.is_cropped_view else "Full View"
+            print(f"Switched to: {mode_str}")
+            self.update_vis(vis)
+            return False
+
         key_to_callback = {}
         key_to_callback[262] = next_frame # Right Arrow
         key_to_callback[263] = prev_frame # Left Arrow
-        # key_to_callback[ord("D")] = next_frame
-        # key_to_callback[ord("A")] = prev_frame
+        key_to_callback[ord("D")] = toggle_crop # D key
 
         print("Controls:")
         print("  [Right Arrow]: Next Frame")
         print("  [Left Arrow] : Previous Frame")
+        print("  [D]          : Toggle Cropped View (BBox points only)")
         print("  [Q]          : Quit")
         
-        # 初回読み込み
-        self.geometries = self.load_frame(0)
+        # 初回データロード
+        self.load_data(0)
+        
+        # 初回表示用のジオメトリリストをここで作成
+        self.geometries = self.get_render_geometries()
 
-        # 可視化実行
         o3d.visualization.draw_geometries_with_key_callbacks(
             self.geometries,
             key_to_callback,
@@ -165,8 +185,7 @@ class AnnotationPlayer:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Player for PCD and JSON labels")
-    parser.add_argument("dir", help="Path to the sequence directory (containing 'pointclouds' and 'annotations' folders)")
-    
+    parser.add_argument("dir", help="Path to the sequence directory")
     args = parser.parse_args()
     
     try:
