@@ -866,69 +866,72 @@ let labelTool = {
         let fileName;
         annotationObjects.clear();
 
-        // ★ 1. ローディング表示用の要素を取得
+        // 1. ローディング表示用の要素を取得
         const loadingIndicator = document.getElementById('loading-indicator');
+        const totalCount = labelTool.fileNames.length;
 
-        // ★ 2. ローディング表示を開始
+        // 2. 最初のメッセージを表示
         if (loadingIndicator) {
-            loadingIndicator.style.display = 'block'; // 'flex' などの表示スタイルでもOK
+            loadingIndicator.style.display = 'block';
+            loadingIndicator.textContent = `Loading... (0/${totalCount})`;
         }
 
         if (labelTool.currentDataset === labelTool.datasets.NuScenes) {
-            // ... (NuScenesの読み込み処理はそのまま) ...
-            // (この部分は同期的なので、すぐ下にローディング解除処理を置きます)
+            // ... (NuScenesの処理はそのまま) ...
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
 
         } else if (labelTool.currentDataset === labelTool.datasets.providentia) {
-            // ... (providentiaの読み込み処理はそのまま) ...
-            // (この部分も同期的なので、すぐ下にローディング解除処理を置きます)
+            // ... (providentiaの処理はそのまま) ...
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
 
             // ==========================================================
-            // ★★★ "follow_me" の処理を Promise.all に変更 ★★★
+            // ★★★ "follow_me" の処理（カウンター更新版） ★★★
             // ==========================================================
         } else if (labelTool.currentDataset === CUSTOM_DATASET_NAME) {
             let self = this;
 
-            // ★ 3. すべてのfetchリクエストを格納する配列を作成
-            const fetchPromises = [];
+            // 非同期関数を定義して即実行
+            (async function loadAllSequentially() {
+                for (let i = 0; i < totalCount; i++) {
+                    fileName = labelTool.fileNames[i];
+                    let filePath = 'input/' + labelTool.currentDataset + '/' + labelTool.sequence + '/annotations/' + fileName + '.json';
 
-            for (let i = 0; i < labelTool.fileNames.length; i++) {
-                fileName = labelTool.fileNames[i];
-                let filePath = 'input/' + labelTool.currentDataset + '/' + labelTool.sequence + '/annotations/' + fileName + '.json';
+                    try {
+                        // ファイルをリクエスト
+                        const response = await fetch(filePath);
 
-                // ★ 4. fetchリクエストを作成し、配列に追加
-                const promise = fetch(filePath)
-                    .then(response => {
                         if (response.ok) {
-                            return response.json();
-                        } else {
-                            return Promise.reject('Annotation file not found for frame ' + fileName);
+                            const data = await response.json();
+                            // 読み込めたら処理を実行
+                            self.loadAnnotationsNuScenesJSON(data);
                         }
-                    })
-                    .then(data => {
-                        // 読み込みに成功した場合、アノテーションを処理
-                        self.loadAnnotationsNuScenesJSON(data);
-                    })
-                    .catch(error => {
-                        // ファイルが存在しない場合は何もしない
-                    });
-
-                fetchPromises.push(promise); // 配列にPromiseを追加
-            }
-
-            // ★ 5. すべてのリクエスト（成功・失敗問わず）が完了するのを待つ
-            Promise.all(fetchPromises)
-                .finally(() => {
-                    // ★ 6. すべて完了したらローディング表示を非表示にする
-                    if (loadingIndicator) {
-                        loadingIndicator.style.display = 'none';
+                    } catch (error) {
+                        // エラーは無視
                     }
-                });
 
-            return; // ★ 7. この後の非表示処理をスキップするためにここで終了
+                    // ★ここを変更: 10ファイルに1回だけ画面を更新する（負荷軽減）
+                    if (i % 10 === 0 || i === totalCount - 1) {
+                        if (loadingIndicator) {
+                            loadingIndicator.textContent = `Loading... (${i + 1}/${totalCount})`;
+                        }
+                        // ★ここを変更: 休憩時間を 0ms -> 10ms に増やして、確実に画面を描画させる
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+                }
+
+                // 全ループ終了後
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+                console.log("All annotations loaded.");
+
+            })(); // 即時実行
+
+            return;
         }
         // ==========================================================
 
-        // ★ 8. (NuScenes / providentia 用) 同期処理の最後にローディングを非表示にする
+        // Failsafe
         if (loadingIndicator) {
             loadingIndicator.style.display = 'none';
         }
