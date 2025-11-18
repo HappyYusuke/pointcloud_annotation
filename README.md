@@ -20,8 +20,10 @@
 <br>
 
 # Demonstration Video
-アノテーションの例です。
+アノテーションの例です。<br>
 👉 [PointCloud annotation using bat-3d](https://youtu.be/RsbdzkEyq7s&fmt=37)
+
+<br>
 
 # Requirements
 本リポジトリで想定している環境は以下の通りです。
