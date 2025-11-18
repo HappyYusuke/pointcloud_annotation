@@ -208,12 +208,12 @@ your_data
 
 プログラムを実行してください。
 ```bash
-python3 view_sequence.py /path/to/your_data
+python3 visualize_annotation.py /path/to/your_data
 ```
 
 本リポジトリのサンプルを使用する場合は以下のコマンドを実行してください。
 ```bash
-python3 view_sequence.py ~/pointcloud_annotation/tools/sample
+python3 visualize_annotation.py ~/pointcloud_annotation/tools/sample
 ```
 
 操作方法
