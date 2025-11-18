@@ -333,36 +333,89 @@ let labelTool = {
             }
         }
     }, loadPointCloudData: function () {
-        // ASCII pcd files
-        let pcdLoader = new THREE.PCDLoader();
         let pointCloudFullURL;
         let pointCloudWithoutGroundURL;
-        pointCloudWithoutGroundURL = 'input/' + labelTool.currentDataset + '/' + labelTool.sequence + '/' + 'pointclouds_without_ground/' + labelTool.fileNames[labelTool.currentFileIndex] + '.pcd';
 
-        // load all point cloud scans in the beginning
+        // まだ読み込んでいない場合（初回起動時）
         if (labelTool.pointCloudLoaded === false) {
-            for (let i = 0; i < labelTool.numFrames; i++) {
-                pointCloudFullURL = 'input/' + labelTool.currentDataset + '/' + labelTool.sequence + '/' + 'pointclouds/' + labelTool.fileNames[i] + '.pcd';
-                pcdLoader.load(pointCloudFullURL, function (mesh) {
-                    mesh.name = 'pointcloud-scan-' + i;
-                    mesh.material.size = pointSizeCurrent;
-                    pointCloudScanMap[i] = mesh;
-                    if (i === labelTool.currentFileIndex) {
-                        scene.add(mesh);
-                    }
-                });
-                pcdLoader.load(pointCloudWithoutGroundURL, function (mesh) {
-                    mesh.name = 'pointcloud-scan-no-ground-' + i;
-                    pointCloudScanNoGroundList.push(mesh);
-                });
-            }
-            labelTool.pointCloudLoaded = true;
-        } else {
-            pointCloudScan = pointCloudScanMap[labelTool.currentFileIndex];
-            pointCloudScan.material.size = pointSizeCurrent;
-            scene.add(pointCloudScan);
-        }
 
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const totalCount = labelTool.numFrames;
+
+            // 1. ローディング表示
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'block';
+                loadingIndicator.textContent = `Loading PointClouds... (0/${totalCount})`;
+            }
+
+            // 2. 非同期で順次読み込みを開始
+            (async function loadPCDsSequentially() {
+                for (let i = 0; i < totalCount; i++) {
+                    pointCloudFullURL = 'input/' + labelTool.currentDataset + '/' + labelTool.sequence + '/pointclouds/' + labelTool.fileNames[i] + '.pcd';
+                    pointCloudWithoutGroundURL = 'input/' + labelTool.currentDataset + '/' + labelTool.sequence + '/pointclouds_without_ground/' + labelTool.fileNames[i] + '.pcd';
+
+                    // PCDローダーのインスタンス作成
+                    let pcdLoader = new THREE.PCDLoader();
+
+                    // --- 1つ目のファイル (Full) 読み込み ---
+                    await new Promise(resolve => {
+                        pcdLoader.load(pointCloudFullURL, function (mesh) {
+                            mesh.name = 'pointcloud-scan-' + i;
+                            mesh.material.size = pointSizeCurrent;
+                            mesh.layers.set(0); // ★重要：レイヤー設定（以前の修正を含めています）
+                            pointCloudScanMap[i] = mesh;
+                            if (i === labelTool.currentFileIndex) {
+                                scene.add(mesh);
+                            }
+                            resolve();
+                        }, null, function(err) {
+                            // エラーでも止まらず次へ
+                            console.warn("Failed to load PCD:", pointCloudFullURL);
+                            resolve();
+                        });
+                    });
+
+                    // --- 2つ目のファイル (No Ground) 読み込み ---
+                    // ※もし No Ground データが無いなら、このブロックはエラーになりスキップされます
+                    await new Promise(resolve => {
+                        let pcdLoaderNoGround = new THREE.PCDLoader();
+                        pcdLoaderNoGround.load(pointCloudWithoutGroundURL, function (mesh) {
+                            mesh.name = 'pointcloud-scan-no-ground-' + i;
+                            pointCloudScanNoGroundList.push(mesh);
+                            resolve();
+                        }, null, function(err) {
+                            resolve();
+                        });
+                    });
+
+                    // 3. カウンター更新と画面描画のための休憩
+                    if (i % 10 === 0 || i === totalCount - 1) {
+                        if (loadingIndicator) {
+                            loadingIndicator.textContent = `Loading PointClouds... (${i + 1}/${totalCount})`;
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+                }
+
+                labelTool.pointCloudLoaded = true;
+                console.log("All point clouds loaded.");
+
+                // ==========================================================
+                // ここでアノテーション読み込みを開始します
+                // ==========================================================
+                labelTool.loadAnnotations();
+                // ==========================================================
+
+            })();
+
+        } else {
+            // すでに読み込み済みの場合（フレーム切り替え時など）
+            pointCloudScan = pointCloudScanMap[labelTool.currentFileIndex];
+            if (pointCloudScan) {
+                pointCloudScan.material.size = pointSizeCurrent;
+                scene.add(pointCloudScan);
+            }
+        }
 
         // show FOV of camera within 3D pointcloud
         labelTool.removeObject('rightplane');
@@ -873,7 +926,7 @@ let labelTool = {
         // 2. 最初のメッセージを表示
         if (loadingIndicator) {
             loadingIndicator.style.display = 'block';
-            loadingIndicator.textContent = `Loading... (0/${totalCount})`;
+            loadingIndicator.textContent = `Loading Annotations... (0/${totalCount})`;
         }
 
         if (labelTool.currentDataset === labelTool.datasets.NuScenes) {
@@ -912,7 +965,7 @@ let labelTool = {
                     // ★ここを変更: 10ファイルに1回だけ画面を更新する（負荷軽減）
                     if (i % 10 === 0 || i === totalCount - 1) {
                         if (loadingIndicator) {
-                            loadingIndicator.textContent = `Loading... (${i + 1}/${totalCount})`;
+                            loadingIndicator.textContent = `Loading Annotations... (${i + 1}/${totalCount})`;
                         }
                         // ★ここを変更: 休憩時間を 0ms -> 10ms に増やして、確実に画面を描画させる
                         await new Promise(resolve => setTimeout(resolve, 10));
@@ -1061,7 +1114,7 @@ let labelTool = {
         }
         this.initPointCloudWindow();
         this.loadPointCloudData();
-        this.loadAnnotations();
+        //this.loadAnnotations();  // 点群読み込み完了後に呼び出す
     },
     loadConfig() {
         labelTool.dataStructure = loadConfigFile(labelTool.configFileName);
