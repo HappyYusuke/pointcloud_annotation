@@ -214,7 +214,7 @@ ZIPファイルをダウンロードすると、ラベルファイル (JSON) を
 <br>
 
 # Troubleshooting
-## `Loading (1/hoge) ...`で止まる
+## `Loading hogehoge...`で止まる
 ここでは、**Chrome**を使用している前提で進めます。
 
 1.  Chromeのアドレスバーに`chrome://settings/system`と入力します。
